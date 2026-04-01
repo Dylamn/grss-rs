@@ -2,3 +2,6 @@
 
 .idea/
 .vscode/
+
+# File used for testing during development
+*.txt

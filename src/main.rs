@@ -1,8 +1,7 @@
 use anyhow::Context;
 use clap::Parser;
-use std::fs::{File};
-use std::io;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::fs::File;
+use std::io::{BufRead, BufReader, BufWriter, Stdout, Write, stdout};
 use std::path::PathBuf;
 
 /// Search for a pattern in a file and display the lines that contain it.
@@ -27,18 +26,46 @@ fn run() -> anyhow::Result<()> {
         .with_context(|| format!("Could not read file `{}`", args.path.display()))?;
 
     let reader = BufReader::new(file);
-    let mut output = BufWriter::new(io::stdout());
+    let mut output = BufWriter::new(stdout());
 
-    for (nu, read_result) in reader.lines().enumerate() {
-        let line = read_result.context("An error occurred while reading the lines.")?;
-
-        // Exact matching (case-sensitive)
-        if line.contains(&args.pattern) {
-            writeln!(output, "{}| {}", nu + 1, line)?;
-        }
-    }
+    read_file(reader, &args.pattern, &mut output)?;
 
     output.flush()?;
+
+    Ok(())
+}
+
+fn read_file(
+    mut reader: BufReader<File>,
+    pattern: &str,
+    output: &mut BufWriter<Stdout>,
+) -> anyhow::Result<()> {
+    let mut line = String::new();
+    let mut line_number = 1;
+
+    loop {
+        line.clear();
+
+        let bytes_read = reader
+            .read_line(&mut line)
+            .context("An error occurred while reading the lines.")?;
+
+        if bytes_read == 0 {
+            break; // Reach EOF
+        }
+
+        // Exact matching (case-sensitive)
+        if line.contains(pattern) {
+            let has_line_separator = line.ends_with('\n');
+
+            if has_line_separator {
+                write!(output, "{}| {}", line_number, line)?;
+            } else {
+                writeln!(output, "{}| {}", line_number, line)?;
+            }
+        }
+        line_number += 1;
+    }
 
     Ok(())
 }
