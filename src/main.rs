@@ -1,8 +1,10 @@
-use std::error::Error;
 use clap::Parser;
-use std::{fmt, fs};
+use std::error::Error;
+use std::fmt;
 use std::fmt::Formatter;
+use std::fs::OpenOptions;
 use std::io;
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
 #[derive(Debug)]
@@ -53,12 +55,19 @@ fn main() {
 fn run() -> Result<(), GrssError> {
     let args = Cli::parse();
 
-    // TODO: Optimize the memory usage. Use `BufReader`
-    let content = fs::read_to_string(&args.path)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .write(false)
+        .open(&args.path)?;
 
-    for line in content.lines() {
+    let reader = BufReader::new(file);
+
+    for (nu, read_result) in reader.lines().into_iter().enumerate() {
+        let line = read_result.expect("An error occurred while reading the lines.");
+
+        // Exact matching (case-sensitive)
         if line.contains(&args.pattern) {
-            println!("{}", line);
+            println!("{}| {}", nu + 1, line);
         }
     }
 
