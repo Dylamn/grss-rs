@@ -1,5 +1,6 @@
 use anyhow::Context;
 use clap::Parser;
+use log::{debug, error};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Stdout, Write, stdout};
 use std::path::PathBuf;
@@ -14,14 +15,16 @@ struct Cli {
 }
 
 fn main() {
+    env_logger::init();
     if let Err(error) = run() {
-        println!("{error}");
+        error!("{}", error)
     }
 }
 
 fn run() -> anyhow::Result<()> {
     let args = Cli::parse();
 
+    debug!("Opening file `{:?}`", &args.path);
     let file = File::open(&args.path)
         .with_context(|| format!("Could not read file `{}`", args.path.display()))?;
 
@@ -35,6 +38,13 @@ fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Consumes the given `BufReader<R>` until EOF is found.
+///
+/// If the pattern is found, append the line to the
+/// buffered output.
+///
+/// This function does not flush automatically the output at the end
+/// but, can eagerly flush if the buffer is full.
 fn read_file(
     mut reader: BufReader<File>,
     pattern: &str,
@@ -51,6 +61,7 @@ fn read_file(
             .context("An error occurred while reading the lines.")?;
 
         if bytes_read == 0 {
+            debug!("Reached EOF (line {})", line_number);
             break; // Reach EOF
         }
 
